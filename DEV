@@ -1,0 +1,490 @@
+import tkinter as tk
+from tkinter import messagebox, Toplevel, Frame
+import csv
+from datetime import datetime
+import re
+import matplotlib.pyplot as plt
+
+# Listas para armazenar dados
+funcionarios = []
+funcionarios_terceirizados = []
+visitantes = []
+registros = []
+logs = []  # Lista para armazenar logs
+
+# Função para atualizar o horário atual
+def atualizar_horario():
+    hora_atual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    label_horario.config(text=hora_atual)
+    janela.after(1000, atualizar_horario)
+
+# Função para validar CPF
+def validar_cpf(cpf):
+    if not re.match(r'^\d{11}$', cpf):
+        return False
+    soma = sum(int(cpf[i]) * (10 - i) for i in range(9))
+    digito1 = (11 - (soma % 11)) % 10
+    soma = sum(int(cpf[i]) * (11 - i) for i in range(10))
+    digito2 = (11 - (soma % 11)) % 10
+    return cpf[-2:] == f"{digito1}{digito2}"
+
+# Função para adicionar funcionário
+def adicionar_funcionario():
+    def cadastrar():
+        matricula = entry_matricula.get()
+        nome = entry_nome.get()
+        cargo = entry_cargo.get()
+        cpf = entry_cpf.get()
+
+        if matricula and nome and cargo and cpf and validar_cpf(cpf):
+            funcionarios.append({"matricula": matricula, "nome": nome, "cargo": cargo, "cpf": cpf})
+            logs.append(f"Funcionário cadastrado: {nome} - Matrícula: {matricula} às {datetime.now()}")
+            messagebox.showinfo("Sucesso", "Funcionário adicionado com sucesso!")
+            entry_matricula.delete(0, tk.END)
+            entry_nome.delete(0, tk.END)
+            entry_cargo.delete(0, tk.END)
+            entry_cpf.delete(0, tk.END)
+            janela_cadastro.destroy()
+        else:
+            messagebox.showwarning("Atenção", "Preencha todos os campos corretamente.")
+
+    janela_cadastro = Toplevel()
+    janela_cadastro.title("Cadastro de Funcionários")
+
+    frame = Frame(janela_cadastro)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Nome:").pack(anchor='w')
+    entry_nome = tk.Entry(frame)
+    entry_nome.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Cargo:").pack(anchor='w')
+    entry_cargo = tk.Entry(frame)
+    entry_cargo.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="CPF (11 dígitos):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    botao_cadastrar = tk.Button(frame, text="Cadastrar Funcionário", command=cadastrar)
+    botao_cadastrar.pack(pady=10)
+
+# Função para visualizar e editar informações de um funcionário
+def visualizar_editar_funcionario():
+    def buscar_funcionario(matricula):
+        for func in funcionarios:
+            if func['matricula'] == matricula:
+                entry_nome.delete(0, tk.END)
+                entry_nome.insert(0, func['nome'])
+                entry_cargo.delete(0, tk.END)
+                entry_cargo.insert(0, func['cargo'])
+                entry_cpf.delete(0, tk.END)
+                entry_cpf.insert(0, func['cpf'])
+                return
+        messagebox.showwarning("Atenção", "Funcionário não encontrado.")
+
+    def editar():
+        for func in funcionarios:
+            if func['matricula'] == entry_matricula.get():
+                func['nome'] = entry_nome.get()
+                func['cargo'] = entry_cargo.get()
+                func['cpf'] = entry_cpf.get()
+                logs.append(f"Informações atualizadas para: {func['nome']} - Matrícula: {func['matricula']} às {datetime.now()}")
+                messagebox.showinfo("Sucesso", "Informações atualizadas com sucesso!")
+                janela_editar.destroy()
+                return
+        messagebox.showwarning("Atenção", "Funcionário não encontrado.")
+
+    janela_editar = Toplevel()
+    janela_editar.title("Visualizar/Editar Funcionário")
+
+    frame = Frame(janela_editar)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    botao_buscar = tk.Button(frame, text="Buscar", command=lambda: buscar_funcionario(entry_matricula.get()))
+    botao_buscar.pack(pady=10)
+
+    tk.Label(frame, text="Nome:").pack(anchor='w')
+    entry_nome = tk.Entry(frame)
+    entry_nome.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Cargo:").pack(anchor='w')
+    entry_cargo = tk.Entry(frame)
+    entry_cargo.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="CPF (11 dígitos):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    botao_editar = tk.Button(frame, text="Salvar Alterações", command=editar)
+    botao_editar.pack(pady=10)
+
+# Função para registrar entrada
+def registrar_entrada():
+    def registrar():
+        matricula = entry_matricula.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for func in funcionarios:
+            if func['matricula'] == matricula:
+                registros.append({"matricula": matricula, "nome": func['nome'], "cargo": func['cargo'], "entrada": horario, "saida": ""})
+                logs.append(f"Entrada registrada para {func['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Entrada registrada para {func['nome']} às {horario}.")
+                entry_matricula.delete(0, tk.END)
+                janela_registro.destroy()
+                return
+        messagebox.showwarning("Atenção", "Funcionário não encontrado.")
+
+    janela_registro = Toplevel()
+    janela_registro.title("Registrar Entrada")
+
+    frame = Frame(janela_registro)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Entrada", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para registrar saída
+def registrar_saida():
+    def registrar():
+        matricula = entry_matricula.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for registro in registros:
+            if registro['matricula'] == matricula and registro['saida'] == "":
+                registro['saida'] = horario
+                logs.append(f"Saída registrada para {registro['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Saída registrada para {registro['nome']} às {horario}.")
+                entry_matricula.delete(0, tk.END)
+                janela_saida.destroy()
+                return
+        messagebox.showwarning("Atenção", "Funcionário não encontrado ou saída já registrada.")
+
+    janela_saida = Toplevel()
+    janela_saida.title("Registrar Saída")
+
+    frame = Frame(janela_saida)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Saída", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para visualizar todos os funcionários cadastrados
+def visualizar_todos_funcionarios():
+    janela_visualizar = Toplevel()
+    janela_visualizar.title("Funcionários Cadastrados")
+
+    frame = Frame(janela_visualizar)
+    frame.pack(padx=20, pady=20)
+
+    lista_funcionarios = tk.Listbox(frame, width=70)
+    lista_funcionarios.pack()
+
+    for func in funcionarios:
+        lista_funcionarios.insert(tk.END, f"{func['matricula']} - {func['nome']} - {func['cargo']} - CPF: {func['cpf']}")
+
+    if not lista_funcionarios.size():
+        lista_funcionarios.insert(tk.END, "Nenhum funcionário cadastrado.")
+
+# Função para visualizar funcionários presentes
+def visualizar_funcionarios_presentes():
+    janela_visualizar = Toplevel()
+    janela_visualizar.title("Funcionários na Empresa")
+
+    frame = Frame(janela_visualizar)
+    frame.pack(padx=20, pady=20)
+
+    lista_funcionarios = tk.Listbox(frame, width=70)
+    lista_funcionarios.pack()
+
+    for registro in registros:
+        if registro['saida'] == "":
+            lista_funcionarios.insert(tk.END, f"{registro['nome']} - Matrícula: {registro['matricula']}")
+
+    if not lista_funcionarios.size():
+        lista_funcionarios.insert(tk.END, "Nenhum funcionário presente.")
+
+# Função para adicionar funcionário terceirizado
+def adicionar_funcionario_terceirizado():
+    def cadastrar():
+        matricula = entry_matricula.get()
+        nome = entry_nome.get()
+        cargo = entry_cargo.get()
+        cpf = entry_cpf.get()
+        empresa = entry_empresa.get()
+
+        if matricula and nome and cargo and cpf and empresa and validar_cpf(cpf):
+            funcionarios_terceirizados.append({"matricula": matricula, "nome": nome, "cargo": cargo, "cpf": cpf, "empresa": empresa})
+            logs.append(f"Funcionário terceirizado cadastrado: {nome} - Matrícula: {matricula} - Empresa: {empresa} às {datetime.now()}")
+            messagebox.showinfo("Sucesso", "Funcionário terceirizado adicionado com sucesso!")
+            entry_matricula.delete(0, tk.END)
+            entry_nome.delete(0, tk.END)
+            entry_cargo.delete(0, tk.END)
+            entry_cpf.delete(0, tk.END)
+            entry_empresa.delete(0, tk.END)
+            janela_cadastro.destroy()
+        else:
+            messagebox.showwarning("Atenção", "Preencha todos os campos corretamente.")
+
+    janela_cadastro = Toplevel()
+    janela_cadastro.title("Cadastro de Funcionários Terceirizados")
+
+    frame = Frame(janela_cadastro)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Nome:").pack(anchor='w')
+    entry_nome = tk.Entry(frame)
+    entry_nome.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Cargo:").pack(anchor='w')
+    entry_cargo = tk.Entry(frame)
+    entry_cargo.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="CPF (11 dígitos):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Empresa:").pack(anchor='w')
+    entry_empresa = tk.Entry(frame)
+    entry_empresa.pack(fill='x', pady=5)
+
+    botao_cadastrar = tk.Button(frame, text="Cadastrar Funcionário Terceirizado", command=cadastrar)
+    botao_cadastrar.pack(pady=10)
+
+# Função para registrar entrada de funcionário terceirizado
+def registrar_entrada_terceirizado():
+    def registrar():
+        matricula = entry_matricula.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for func in funcionarios_terceirizados:
+            if func['matricula'] == matricula:
+                registros.append({"matricula": matricula, "nome": func['nome'], "cargo": func['cargo'], "entrada": horario, "saida": "", "empresa": func['empresa']})
+                logs.append(f"Entrada registrada para terceirizado: {func['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Entrada registrada para {func['nome']} às {horario}.")
+                entry_matricula.delete(0, tk.END)
+                janela_registro.destroy()
+                return
+        messagebox.showwarning("Atenção", "Funcionário terceirizado não encontrado.")
+
+    janela_registro = Toplevel()
+    janela_registro.title("Registrar Entrada Terceirizado")
+
+    frame = Frame(janela_registro)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Entrada", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para registrar saída de funcionário terceirizado
+def registrar_saida_terceirizado():
+    def registrar():
+        matricula = entry_matricula.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for registro in registros:
+            if registro['matricula'] == matricula and registro['saida'] == "":
+                registro['saida'] = horario
+                logs.append(f"Saída registrada para terceirizado: {registro['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Saída registrada para {registro['nome']} às {horario}.")
+                entry_matricula.delete(0, tk.END)
+                janela_saida.destroy()
+                return
+        messagebox.showwarning("Atenção", "Funcionário terceirizado não encontrado ou saída já registrada.")
+
+    janela_saida = Toplevel()
+    janela_saida.title("Registrar Saída Terceirizado")
+
+    frame = Frame(janela_saida)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="Matrícula:").pack(anchor='w')
+    entry_matricula = tk.Entry(frame)
+    entry_matricula.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Saída", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para cadastrar visitante
+def cadastrar_visitante():
+    def cadastrar():
+        cpf = entry_cpf.get()
+        nome = entry_nome.get()
+        if cpf and nome and validar_cpf(cpf):
+            visitantes.append({"cpf": cpf, "nome": nome})
+            logs.append(f"Visitante cadastrado: {nome} - CPF: {cpf} às {datetime.now()}")
+            messagebox.showinfo("Sucesso", "Visitante cadastrado com sucesso!")
+            entry_cpf.delete(0, tk.END)
+            entry_nome.delete(0, tk.END)
+            janela_visitante.destroy()
+        else:
+            messagebox.showwarning("Atenção", "Preencha todos os campos corretamente.")
+
+    janela_visitante = Toplevel()
+    janela_visitante.title("Cadastro de Visitantes")
+
+    frame = Frame(janela_visitante)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="CPF (ou ID):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    tk.Label(frame, text="Nome:").pack(anchor='w')
+    entry_nome = tk.Entry(frame)
+    entry_nome.pack(fill='x', pady=5)
+
+    botao_cadastrar = tk.Button(frame, text="Cadastrar Visitante", command=cadastrar)
+    botao_cadastrar.pack(pady=10)
+
+# Função para registrar entrada de visitante
+def registrar_entrada_visitante():
+    def registrar():
+        cpf = entry_cpf.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for visitante in visitantes:
+            if visitante['cpf'] == cpf:
+                registros.append({"cpf": cpf, "nome": visitante['nome'], "entrada": horario, "saida": ""})
+                logs.append(f"Entrada registrada para visitante: {visitante['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Entrada registrada para {visitante['nome']} às {horario}.")
+                entry_cpf.delete(0, tk.END)
+                janela_registro.destroy()
+                return
+        messagebox.showwarning("Atenção", "Visitante não encontrado.")
+
+    janela_registro = Toplevel()
+    janela_registro.title("Registrar Entrada Visitante")
+
+    frame = Frame(janela_registro)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="CPF (ou ID):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Entrada", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para registrar saída de visitante
+def registrar_saida_visitante():
+    def registrar():
+        cpf = entry_cpf.get()
+        horario = datetime.now().strftime("%H:%M:%S")
+        
+        for registro in registros:
+            if registro['cpf'] == cpf and registro['saida'] == "":
+                registro['saida'] = horario
+                logs.append(f"Saída registrada para visitante: {registro['nome']} às {horario}")
+                messagebox.showinfo("Sucesso", f"Saída registrada para {registro['nome']} às {horario}.")
+                entry_cpf.delete(0, tk.END)
+                janela_saida.destroy()
+                return
+        messagebox.showwarning("Atenção", "Visitante não encontrado ou saída já registrada.")
+
+    janela_saida = Toplevel()
+    janela_saida.title("Registrar Saída Visitante")
+
+    frame = Frame(janela_saida)
+    frame.pack(padx=20, pady=20)
+
+    tk.Label(frame, text="CPF (ou ID):").pack(anchor='w')
+    entry_cpf = tk.Entry(frame)
+    entry_cpf.pack(fill='x', pady=5)
+
+    botao_registrar = tk.Button(frame, text="Registrar Saída", command=registrar)
+    botao_registrar.pack(pady=10)
+
+# Função para gerar relatório mensal
+def gerar_relatorio():
+    janela_relatorio = Toplevel()
+    janela_relatorio.title("Relatório Mensal")
+
+    frame = Frame(janela_relatorio)
+    frame.pack(padx=20, pady=20)
+
+    lista_relatorio = tk.Listbox(frame, width=70)
+    lista_relatorio.pack()
+
+    for log in logs:
+        lista_relatorio.insert(tk.END, log)
+
+    if not lista_relatorio.size():
+        lista_relatorio.insert(tk.END, "Nenhum log registrado.")
+
+# Interface Principal
+janela = tk.Tk()
+janela.title("Controle de Acesso")
+janela.geometry("400x400")
+
+# Widget para mostrar data e hora
+label_horario = tk.Label(janela, font=("Arial", 14))
+label_horario.pack(pady=20)
+
+atualizar_horario()
+
+# Botões da interface
+botao_cadastrar_funcionario = tk.Button(janela, text="Cadastrar Funcionário", command=adicionar_funcionario)
+botao_cadastrar_funcionario.pack(pady=5)
+
+botao_visualizar_funcionarios = tk.Button(janela, text="Visualizar Funcionários", command=visualizar_todos_funcionarios)
+botao_visualizar_funcionarios.pack(pady=5)
+
+botao_editar_funcionario = tk.Button(janela, text="Editar Funcionário", command=visualizar_editar_funcionario)
+botao_editar_funcionario.pack(pady=5)
+
+botao_registrar_entrada = tk.Button(janela, text="Registrar Entrada Funcionário", command=registrar_entrada)
+botao_registrar_entrada.pack(pady=5)
+
+botao_registrar_saida = tk.Button(janela, text="Registrar Saída Funcionário", command=registrar_saida)
+botao_registrar_saida.pack(pady=5)
+
+botao_visualizar_presentes = tk.Button(janela, text="Visualizar Funcionários Presentes", command=visualizar_funcionarios_presentes)
+botao_visualizar_presentes.pack(pady=5)
+
+botao_cadastrar_funcionario_terceirizado = tk.Button(janela, text="Cadastrar Funcionário Terceirizado", command=adicionar_funcionario_terceirizado)
+botao_cadastrar_funcionario_terceirizado.pack(pady=5)
+
+botao_registrar_entrada_terceirizado = tk.Button(janela, text="Registrar Entrada Terceirizado", command=registrar_entrada_terceirizado)
+botao_registrar_entrada_terceirizado.pack(pady=5)
+
+botao_registrar_saida_terceirizado = tk.Button(janela, text="Registrar Saída Terceirizado", command=registrar_saida_terceirizado)
+botao_registrar_saida_terceirizado.pack(pady=5)
+
+botao_cadastrar_visitante = tk.Button(janela, text="Cadastrar Visitante", command=cadastrar_visitante)
+botao_cadastrar_visitante.pack(pady=5)
+
+botao_registrar_entrada_visitante = tk.Button(janela, text="Registrar Entrada Visitante", command=registrar_entrada_visitante)
+botao_registrar_entrada_visitante.pack(pady=5)
+
+botao_registrar_saida_visitante = tk.Button(janela, text="Registrar Saída Visitante", command=registrar_saida_visitante)
+botao_registrar_saida_visitante.pack(pady=5)
+
+botao_gerar_relatorio = tk.Button(janela, text="Gerar Relatório Mensal", command=gerar_relatorio)
+botao_gerar_relatorio.pack(pady=5)
+
+janela.mainloop()
